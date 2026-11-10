@@ -90,6 +90,11 @@ export function Editor() {
   const { widthPt, heightPt, displayUnit } = layout.page;
   const pageLabel = findPreset(widthPt, heightPt)?.name ?? formatDimensions(widthPt, heightPt, displayUnit);
 
+  // The browser tab shows the layout name.
+  useEffect(() => {
+    document.title = `${layout.name} · Print-on-Top Layout Editor`;
+  }, [layout.name]);
+
   // Refit whenever the page dimensions change (first load, apply page size, load layout, undo).
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -313,6 +318,7 @@ export function Editor() {
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <Toolbar
         layoutName={layout.name}
+        onRenameLayout={handleRenameLayout}
         pageLabel={pageLabel}
         hasBackground={layout.background !== null}
         onUploadImage={handleUploadImage}

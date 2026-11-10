@@ -3,9 +3,11 @@ import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { formatShortcut, useIsMac } from "./shortcuts";
 import { LogoMark } from "./ui/LogoMark";
+import { EditableTitle } from "./EditableTitle";
 
 interface ToolbarProps {
   layoutName: string;
+  onRenameLayout: (name: string) => void;
   pageLabel: string;
   hasBackground: boolean;
   onUploadImage: (file: File) => void;
@@ -36,6 +38,7 @@ function Divider() {
 
 export function Toolbar({
   layoutName,
+  onRenameLayout,
   pageLabel,
   hasBackground,
   onUploadImage,
@@ -71,11 +74,9 @@ export function Toolbar({
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-1 border-b border-zinc-200 bg-white px-3">
-      <div className="mr-2 flex min-w-0 items-center gap-2.5">
+      <div className="mr-2 flex min-w-0 items-center gap-1.5">
         <LogoMark size={24} />
-        <span className="max-w-56 truncate text-[13px] font-semibold tracking-tight text-zinc-900">
-          {layoutName}
-        </span>
+        <EditableTitle value={layoutName} onChange={onRenameLayout} />
       </div>
 
       <Divider />
