@@ -1,4 +1,4 @@
-import { LayoutConfig } from "./types";
+import { FieldPosition, LayoutConfig } from "./types";
 
 const STORAGE_KEY = "print-on-top:layouts";
 
@@ -45,25 +45,7 @@ export function loadLocalLayout(id: string): LayoutConfig | null {
   return readIndex()[id] ?? null;
 }
 
-/** Serializes a layout to a JSON string for export/download. */
-export function exportLayoutToJson(layout: LayoutConfig): string {
-  return JSON.stringify(layout, null, 2);
-}
-
-/** Parses and lightly validates a layout previously produced by `exportLayoutToJson`. */
-export function importLayoutFromJson(json: string): LayoutConfig {
-  const parsed = JSON.parse(json);
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    typeof parsed.id !== "string" ||
-    typeof parsed.name !== "string" ||
-    typeof parsed.page !== "object" ||
-    !Array.isArray(parsed.fields)
-  ) {
-    throw new Error("This file is not a valid print-on-top layout.");
-  }
-
-  return parsed as LayoutConfig;
+/** Serializes field positions to the JSON export format: `[{ text, x, y }]`. */
+export function exportFieldPositionsToJson(positions: FieldPosition[]): string {
+  return JSON.stringify(positions, null, 2);
 }

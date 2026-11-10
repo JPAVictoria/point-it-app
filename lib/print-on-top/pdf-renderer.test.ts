@@ -1,7 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { createEmptyLayout, createTextField } from "./factory";
-import { renderLayoutToPdf } from "./pdf-renderer";
+import { computeFieldPositions, renderLayoutToPdf } from "./pdf-renderer";
 
 describe("renderLayoutToPdf", () => {
   it("produces a PDF with the configured page dimensions", async () => {
@@ -61,5 +61,26 @@ describe("renderLayoutToPdf", () => {
 
     const bytes = await renderLayoutToPdf(layout, {});
     expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+});
+
+describe("computeFieldPositions", () => {
+  it("returns only text and drawText x/y for enabled fields", async () => {
+    const layout = createEmptyLayout("Test");
+    const shown = createTextField(50, 100);
+    shown.sampleValue = "ACME";
+    const hidden = createTextField(10, 10);
+    hidden.enabled = false;
+    layout.fields = [shown, hidden];
+
+    const positions = await computeFieldPositions(layout);
+
+    expect(positions).toHaveLength(1);
+    expect(Object.keys(positions[0]).sort()).toEqual(["text", "x", "y"]);
+    expect(positions[0].text).toBe("ACME");
+    expect(positions[0].x).toBe(50);
+    // Baseline sits below the top edge (y flipped to bottom-left origin, minus ascent).
+    expect(positions[0].y).toBeLessThan(layout.page.heightPt - 100);
+    expect(positions[0].y).toBeGreaterThan(layout.page.heightPt - 100 - 12);
   });
 });

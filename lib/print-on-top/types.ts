@@ -71,6 +71,19 @@ export interface BackgroundImage {
    * distorting the image, and should only be chosen deliberately.
    */
   fitMode: "contain" | "stretch";
+  /**
+   * Manually adjusted placement (move/resize in the editor), in points with
+   * a top-left origin. When set it overrides `fitMode`; it may extend past
+   * the page edges, in which case the image is clipped to the page.
+   */
+  frame?: ImageFrame;
+}
+
+export interface ImageFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface LayoutConfig {
@@ -84,3 +97,10 @@ export interface LayoutConfig {
 
 /** Values keyed by TextField.name, used to fill a layout for rendering. */
 export type LayoutValues = Record<string, string>;
+
+/** One entry of the JSON export: a field's text and its pdf-lib drawText position. */
+export interface FieldPosition {
+  text: string;
+  x: number;
+  y: number;
+}
