@@ -1,0 +1,37 @@
+// Print-on-top layouts. Images live in Supabase Storage (bucket
+// `layout-backgrounds`); this table only stores their object paths.
+//
+// After editing: `npx prisma migrate dev --create-only` to write a migration,
+// review it, then apply with `npm run db:migrate`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// One layout from the Compilation. `page`, `fields` and `background` are
+/// always read and written whole, so they're JSON rather than separate tables;
+/// their shapes are `PageSize`, `TextField[]` and `BackgroundImage` in
+/// lib/print-on-top/types.ts, validated by lib/print-on-top/layout-validation.ts.
+model Layout {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String    @db.VarChar(80)
+  /// Free-text name typed by whoever created it (the app has no logins).
+  authorName String?   @map("author_name") @db.VarChar(60)
+  page       Json
+  fields     Json      @default("[]")
+  background Json?
+  /// Bumped on every save; autosave sends it back to detect edits made elsewhere.
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// Soft delete: set instead of deleting the row. Queries filter `deletedAt: null`.
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([deletedAt, updatedAt(sort: Desc)], map: "layouts_recent_idx")
+  @@map("layouts")
+}

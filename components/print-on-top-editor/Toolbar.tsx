@@ -1,13 +1,19 @@
 import { ChangeEvent, useRef } from "react";
+import Link from "next/link";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { formatShortcut, useIsMac } from "./shortcuts";
 import { LogoMark } from "./ui/LogoMark";
 import { EditableTitle } from "./EditableTitle";
+import { SaveStatusIndicator } from "./SaveStatusIndicator";
+import { SaveStatus } from "./useAutosave";
 
 interface ToolbarProps {
   layoutName: string;
   onRenameLayout: (name: string) => void;
+  saveStatus: SaveStatus;
+  /** 0–1 while an image is uploading, otherwise null. */
+  uploadProgress: number | null;
   pageLabel: string;
   hasBackground: boolean;
   onUploadImage: (file: File) => void;
@@ -26,7 +32,7 @@ interface ToolbarProps {
   onZoomReset: () => void;
   onZoomFit: () => void;
   onOpenPageSize: () => void;
-  onOpenSaveLoad: () => void;
+  onOpenExport: () => void;
   isPreparingPrint: boolean;
   onPrintPreview: () => void;
   onOpenShortcuts: () => void;
@@ -39,6 +45,8 @@ function Divider() {
 export function Toolbar({
   layoutName,
   onRenameLayout,
+  saveStatus,
+  uploadProgress,
   pageLabel,
   hasBackground,
   onUploadImage,
@@ -57,7 +65,7 @@ export function Toolbar({
   onZoomReset,
   onZoomFit,
   onOpenPageSize,
-  onOpenSaveLoad,
+  onOpenExport,
   isPreparingPrint,
   onPrintPreview,
   onOpenShortcuts,
@@ -74,16 +82,35 @@ export function Toolbar({
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-1 border-b border-zinc-200 bg-white px-3">
-      <div className="mr-2 flex min-w-0 items-center gap-1.5">
-        <LogoMark size={24} />
+      <Link
+        href="/compilation"
+        className="group flex h-8 shrink-0 items-center gap-1.5 rounded-md pr-2 pl-1 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+      >
+        <Icon name="chevronLeft" size={14} className="text-zinc-400 group-hover:text-zinc-700" />
+        <LogoMark size={22} />
+        Compilation
+      </Link>
+
+      <Divider />
+
+      <div className="mr-2 flex min-w-0 items-center gap-2">
         <EditableTitle value={layoutName} onChange={onRenameLayout} />
+        <SaveStatusIndicator status={saveStatus} />
       </div>
 
       <Divider />
 
-      <Button variant="ghost" disabled={isEditingImage} onClick={() => fileInputRef.current?.click()}>
+      <Button
+        variant="ghost"
+        disabled={isEditingImage || uploadProgress !== null}
+        onClick={() => fileInputRef.current?.click()}
+      >
         <Icon name="image" size={15} />
-        {hasBackground ? "Replace image" : "Upload image"}
+        {uploadProgress !== null
+          ? `Uploading ${Math.round(uploadProgress * 100)}%`
+          : hasBackground
+            ? "Replace image"
+            : "Upload image"}
       </Button>
       <input
         ref={fileInputRef}
@@ -159,9 +186,9 @@ export function Toolbar({
         <Icon name="page" size={15} />
         <span className="max-w-48 truncate">{pageLabel}</span>
       </Button>
-      <Button variant="ghost" tooltip={hint("Layouts", ["mod", "S"])} onClick={onOpenSaveLoad}>
-        <Icon name="layers" size={15} />
-        Layouts
+      <Button variant="ghost" onClick={onOpenExport}>
+        <Icon name="download" size={15} />
+        Export
       </Button>
       <Button variant="ghost" size="icon" tooltip={hint("Keyboard shortcuts", ["?"])} onClick={onOpenShortcuts}>
         <Icon name="keyboard" size={15} />

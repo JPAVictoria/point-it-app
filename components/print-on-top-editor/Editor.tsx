@@ -8,19 +8,23 @@ import {
   PageSize,
   TextField as TextFieldModel,
 } from "@/lib/print-on-top/types";
-import { createEmptyLayout, createTextField, duplicateTextField } from "@/lib/print-on-top/factory";
+import { createTextField, duplicateTextField } from "@/lib/print-on-top/factory";
 import { clampZoom, computeFitZoom, ZOOM_STEP } from "@/lib/print-on-top/zoom";
 import { findPreset } from "@/lib/print-on-top/paper-sizes";
 import { formatDimensions } from "@/lib/print-on-top/units";
 import { fitImageFrame } from "@/lib/print-on-top/image-frame";
 import { renderLayoutPreview } from "@/lib/print-on-top/pdf-renderer";
 import { printPdf } from "@/lib/print-on-top/print-pdf";
+import { checkImageFile, LoadedImage, loadImage, makeThumbnail, uploadToSignedUrl } from "@/lib/print-on-top/image-upload";
+import { createImageUploadAction } from "@/app/actions/layouts";
 import { useLayoutHistory } from "./useLayoutHistory";
 import { Toolbar } from "./Toolbar";
 import { Canvas } from "./Canvas";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { PageSizeDialog } from "./PageSizeDialog";
-import { SaveLoadDialog } from "./SaveLoadDialog";
+import { ExportDialog } from "./ExportDialog";
+import { useAutosave } from "./useAutosave";
+import { Button } from "./ui/Button";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { RULER_THICKNESS } from "./Ruler";
 import { ShortcutsDialog } from "./ShortcutsDialog";
@@ -45,37 +49,32 @@ function fitZoomFor(container: HTMLElement, pageWidthPt: number, pageHeightPt: n
   );
 }
 
-function readImageFile(file: File): Promise<BackgroundImage> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not read the selected file."));
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const img = new Image();
-      img.onerror = () => reject(new Error("The selected file is not a readable image."));
-      img.onload = () => {
-        resolve({
-          dataUrl,
-          naturalWidthPx: img.naturalWidth,
-          naturalHeightPx: img.naturalHeight,
-          fitMode: "contain",
-        });
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-  });
+interface EditorProps {
+  initialLayout: LayoutConfig;
+  /** Signed URL of the stored reference image, if the layout has one. */
+  initialImageUrl: string | null;
 }
 
-export function Editor() {
-  const history = useLayoutHistory(createEmptyLayout());
+export function Editor({ initialLayout, initialImageUrl }: EditorProps) {
+  const history = useLayoutHistory(initialLayout);
   const { layout } = history;
+  const autosave = useAutosave(layout);
+
+  /**
+   * Displayable URL per storage path: the signed URL from the server, or a
+   * local object URL for images uploaded in this session. Kept for every path
+   * seen so undoing back to an earlier image still shows it.
+   */
+  const [imageSrcs, setImageSrcs] = useState<Record<string, string>>(() =>
+    initialLayout.background && initialImageUrl ? { [initialLayout.background.storagePath]: initialImageUrl } : {}
+  );
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [isPlacingField, setIsPlacingField] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
-  const [saveLoadOpen, setSaveLoadOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +87,7 @@ export function Editor() {
 
   const selectedField = layout.fields.find((f) => f.id === selectedFieldId) ?? null;
   const { widthPt, heightPt, displayUnit } = layout.page;
+  const imageSrc = layout.background ? imageSrcs[layout.background.storagePath] ?? null : null;
   const pageLabel = findPreset(widthPt, heightPt)?.name ?? formatDimensions(widthPt, heightPt, displayUnit);
 
   // The browser tab shows the layout name.
@@ -150,7 +150,7 @@ export function Editor() {
     setImageEditSnapshot(null);
   }
 
-  const anyDialogOpen = pageSizeOpen || saveLoadOpen || shortcutsOpen || confirm !== null;
+  const anyDialogOpen = pageSizeOpen || exportOpen || shortcutsOpen || confirm !== null;
 
   /**
    * Canva-style shortcuts. "Mod" accepts both ⌘ (Mac) and Ctrl (Windows).
@@ -186,7 +186,7 @@ export function Editor() {
       if (mod) {
         if (key === "z") history[e.shiftKey ? "redo" : "undo"]();
         else if (key === "y") history.redo();
-        else if (key === "s") setSaveLoadOpen(true);
+        else if (key === "s") autosave.saveNow();
         else if (key === "p") handlePrintPreview();
         else if (key === "d") handleDuplicateSelected();
         else if (key === "=" || key === "+") setZoom((z) => clampZoom(z + ZOOM_STEP));
@@ -223,13 +223,50 @@ export function Editor() {
     setSelectedFieldId(copy.id);
   }
 
+  /**
+   * Uploads the image and a thumbnail straight to Supabase Storage through
+   * signed URLs, then points the layout at them. The layout only changes once
+   * both uploads succeed, so autosave never stores a path to a missing file.
+   */
   async function handleUploadImage(file: File) {
+    if (uploadProgress !== null) return;
+    const problem = checkImageFile(file);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+
+    setError(null);
+    setUploadProgress(0);
+    let loaded: LoadedImage | null = null;
     try {
-      const background = await readImageFile(file);
-      setError(null);
-      history.commit((current) => ({ ...current, background }));
+      loaded = await loadImage(file);
+      const [thumbnail, targets] = await Promise.all([
+        makeThumbnail(loaded),
+        createImageUploadAction(layout.id, file.type),
+      ]);
+      if (!targets.ok) throw new Error(targets.error);
+
+      await uploadToSignedUrl(targets.data.image.signedUrl, file, file.type, (p) => setUploadProgress(p * 0.95));
+      await uploadToSignedUrl(targets.data.thumbnail.signedUrl, thumbnail, "image/jpeg");
+
+      const { naturalWidthPx, naturalHeightPx, objectUrl } = loaded;
+      setImageSrcs((srcs) => ({ ...srcs, [targets.data.image.path]: objectUrl }));
+      history.commit((current) => ({
+        ...current,
+        background: {
+          storagePath: targets.data.image.path,
+          thumbnailPath: targets.data.thumbnail.path,
+          naturalWidthPx,
+          naturalHeightPx,
+          fitMode: "contain",
+        },
+      }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load image.");
+      if (loaded) URL.revokeObjectURL(loaded.objectUrl);
+      setError(err instanceof Error ? err.message : "Failed to upload the image.");
+    } finally {
+      setUploadProgress(null);
     }
   }
 
@@ -302,12 +339,6 @@ export function Editor() {
     history.setLive((current) => ({ ...current, name }));
   }
 
-  function handleLoadLayout(loaded: LayoutConfig) {
-    history.replaceAll(loaded);
-    setSelectedFieldId(null);
-    setIsPlacingField(false);
-  }
-
   function handleZoomFit() {
     const container = canvasContainerRef.current;
     if (!container) return;
@@ -318,6 +349,8 @@ export function Editor() {
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <Toolbar
         layoutName={layout.name}
+        saveStatus={autosave.status}
+        uploadProgress={uploadProgress}
         onRenameLayout={handleRenameLayout}
         pageLabel={pageLabel}
         hasBackground={layout.background !== null}
@@ -337,11 +370,34 @@ export function Editor() {
         onZoomReset={() => setZoom(1)}
         onZoomFit={handleZoomFit}
         onOpenPageSize={() => setPageSizeOpen(true)}
-        onOpenSaveLoad={() => setSaveLoadOpen(true)}
+        onOpenExport={() => setExportOpen(true)}
         isPreparingPrint={isPreparingPrint}
         onPrintPreview={handlePrintPreview}
         onOpenShortcuts={() => setShortcutsOpen(true)}
       />
+
+      {autosave.status === "conflict" ? (
+        <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          <span>
+            Someone saved this layout from another tab or device. Your latest changes aren&apos;t saved yet.
+          </span>
+          <span className="flex shrink-0 gap-2">
+            <Button size="sm" onClick={() => window.location.reload()}>
+              Reload theirs
+            </Button>
+            <Button size="sm" variant="primary" onClick={autosave.overwrite}>
+              Overwrite with mine
+            </Button>
+          </span>
+        </div>
+      ) : null}
+
+      {autosave.error && (autosave.status === "retrying" || autosave.status === "failed") ? (
+        <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-xs text-red-700">
+          {autosave.error}
+          {autosave.status === "retrying" ? " Retrying in a few seconds…" : null}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-2 text-xs text-red-700">
@@ -360,6 +416,7 @@ export function Editor() {
         <Canvas
           containerRef={canvasContainerRef}
           layout={layout}
+          imageSrc={imageSrc}
           zoom={zoom}
           selectedFieldId={selectedFieldId}
           onSelectField={setSelectedFieldId}
@@ -395,16 +452,9 @@ export function Editor() {
         onApply={handleApplyPage}
       />
 
-      <SaveLoadDialog
-        open={saveLoadOpen}
-        onClose={() => setSaveLoadOpen(false)}
-        layout={layout}
-        onLoad={handleLoadLayout}
-        onRename={handleRenameLayout}
-      />
+      <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} layout={layout} />
 
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-
 
       <ConfirmDialog
         open={confirm === "remove-image"}

@@ -19,17 +19,17 @@ const FONT_CSS_FAMILY: Record<string, string> = {
   Courier: "'Courier New', Courier, monospace",
 };
 
-function cssFontFamily(fontFamily: string): string {
+export function cssFontFamily(fontFamily: string): string {
   if (fontFamily.startsWith("Times")) return FONT_CSS_FAMILY.Times;
   if (fontFamily.startsWith("Courier")) return FONT_CSS_FAMILY.Courier;
   return FONT_CSS_FAMILY.Helvetica;
 }
 
-function cssFontWeight(fontFamily: string): string {
+export function cssFontWeight(fontFamily: string): string {
   return fontFamily.includes("Bold") ? "bold" : "normal";
 }
 
-function cssFontStyle(fontFamily: string): string {
+export function cssFontStyle(fontFamily: string): string {
   return fontFamily.includes("Oblique") || fontFamily.includes("Italic") ? "italic" : "normal";
 }
 

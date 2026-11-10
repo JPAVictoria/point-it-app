@@ -9,7 +9,7 @@ export const SHORTCUTS: { group: string; items: { label: string; keys: ShortcutK
     items: [
       { label: "Undo", keys: [["mod", "Z"]] },
       { label: "Redo", keys: [["mod", "shift", "Z"], ["mod", "Y"]] },
-      { label: "Save / export layout", keys: [["mod", "S"]] },
+      { label: "Save now (autosaves anyway)", keys: [["mod", "S"]] },
       { label: "Preview PDF (print dialog)", keys: [["mod", "P"]] },
       { label: "Show shortcuts", keys: [["?"]] },
     ],

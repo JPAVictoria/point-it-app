@@ -21,8 +21,10 @@ export function createEmptyLayout(name = "Untitled Layout"): LayoutConfig {
     id: id(),
     name,
     page: createDefaultPageSize(),
+    authorName: null,
     background: null,
     fields: [],
+    version: 1,
     updatedAt: new Date().toISOString(),
   };
 }

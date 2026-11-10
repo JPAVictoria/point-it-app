@@ -59,8 +59,14 @@ export interface TextField {
 }
 
 export interface BackgroundImage {
-  /** Data URL of the uploaded reference image. Never included in the rendered PDF. */
-  dataUrl: string;
+  /**
+   * Object path of the uploaded reference image in the Supabase Storage
+   * bucket (`{layoutId}/{uuid}.{ext}`). Never included in the rendered PDF.
+   * The editor displays it through a signed URL or a local object URL.
+   */
+  storagePath: string;
+  /** Path of the ~600 px JPEG copy shown on the Compilation page. */
+  thumbnailPath: string;
   /** Natural pixel dimensions of the uploaded image. */
   naturalWidthPx: number;
   naturalHeightPx: number;
@@ -89,10 +95,24 @@ export interface ImageFrame {
 export interface LayoutConfig {
   id: string;
   name: string;
+  /** Free-text name typed by whoever created the layout; not verified (the app has no logins). */
+  authorName: string | null;
   page: PageSize;
   background: BackgroundImage | null;
   fields: TextField[];
+  /** Incremented on every save; autosave sends it back to detect edits made elsewhere. */
+  version: number;
   updatedAt: string;
+}
+
+/** The parts of a layout the editor saves. */
+export type LayoutContent = Pick<LayoutConfig, "name" | "page" | "fields" | "background">;
+
+/** A layout as listed on the Compilation page. */
+export interface LayoutSummary extends LayoutConfig {
+  createdAt: string;
+  /** Short-lived signed URL of the thumbnail, or null when the layout has no image. */
+  thumbnailUrl: string | null;
 }
 
 /** Values keyed by TextField.name, used to fill a layout for rendering. */

@@ -12,6 +12,8 @@ import { Icon } from "./ui/Icon";
 interface CanvasProps {
   containerRef: RefObject<HTMLDivElement | null>;
   layout: LayoutConfig;
+  /** Displayable URL for the layout's reference image; null if it couldn't be loaded. */
+  imageSrc: string | null;
   zoom: number;
   selectedFieldId: string | null;
   onSelectField: (id: string | null) => void;
@@ -37,6 +39,7 @@ function isInsideFrame(frame: ImageFrame, xPt: number, yPt: number): boolean {
 export function Canvas({
   containerRef,
   layout,
+  imageSrc,
   zoom,
   selectedFieldId,
   onSelectField,
@@ -145,10 +148,10 @@ export function Canvas({
                     />
                   ) : null}
                   {/* While adjusting, show the part of the image that falls outside the page, faded. */}
-                  {isEditingImage ? (
+                  {isEditingImage && imageSrc ? (
                     <div className="pointer-events-none absolute opacity-25" style={frameStyle}>
                       <Image
-                        src={layout.background.dataUrl}
+                        src={imageSrc}
                         alt=""
                         fill
                         unoptimized
@@ -160,15 +163,21 @@ export function Canvas({
                   ) : null}
                   <div className="pointer-events-none absolute inset-0 overflow-hidden">
                     <div className="absolute" style={frameStyle}>
-                      <Image
-                        src={layout.background.dataUrl}
-                        alt="Form background reference"
-                        fill
-                        unoptimized
-                        draggable={false}
-                        className="select-none"
-                        style={{ objectFit: "fill" }}
-                      />
+                      {imageSrc ? (
+                        <Image
+                          src={imageSrc}
+                          alt="Form background reference"
+                          fill
+                          unoptimized
+                          draggable={false}
+                          className="select-none"
+                          style={{ objectFit: "fill" }}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-zinc-50 text-xs text-zinc-400">
+                          Image unavailable — try reloading
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
