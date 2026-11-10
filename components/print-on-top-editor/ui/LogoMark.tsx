@@ -1,0 +1,41 @@
+// Owl mascot head. Keep in sync with public/mascot.svg, public/logo.svg and app/icon.svg.
+export function LogoMark({ size = 24 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="20 12 88 88"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M50 110v7M56 110v7M72 110v7M78 110v7" stroke="#3b82f6" strokeWidth="4.5" />
+      <path d="M32 46 33 22l17 11q14-5 28 0l17-11 1 24q10 15 7 37-4 29-39 29T25 83q-3-22 7-37Z" fill="#1b2a4e" stroke="#101b36" strokeWidth="3" />
+      <path d="M64 42q-9-8-19-7-13 2-15 15-1 13 12 19 11 4 22 0 11 4 22 0 13-6 12-19-2-13-15-15-10-1-19 7Z" fill="#2b3f6e" />
+      <ellipse cx="64" cy="90" rx="25" ry="19" fill="#e8edf5" />
+      <path d="M54 88q3 2 6 0M68 88q3 2 6 0M61 95q3 2 6 0" stroke="#cbd5e1" strokeWidth="2.5" />
+      <circle cx="49" cy="54" r="13" fill="#fff" stroke="#101b36" strokeWidth="3" />
+      <circle cx="79" cy="54" r="13" fill="#fff" stroke="#101b36" strokeWidth="3" />
+      <circle cx="51" cy="57" r="5.5" fill="#101b36" />
+      <circle cx="81" cy="57" r="5.5" fill="#101b36" />
+      <circle cx="53" cy="55" r="2" fill="#fff" />
+      <circle cx="83" cy="55" r="2" fill="#fff" />
+      <path d="M59 65h10l-5 8z" fill="#facc15" stroke="#101b36" strokeWidth="2.5" />
+      <g transform="rotate(-8 50 94)">
+        <rect x="30" y="80" width="38" height="28" rx="4" fill="#fff" stroke="#101b36" strokeWidth="3" />
+        <path d="M37 88h13M37 94h22" stroke="#cbd5e1" strokeWidth="3" />
+        <rect x="36" y="98" width="18" height="5" rx="2.5" fill="#3b82f6" />
+      </g>
+      <g transform="translate(60 99) rotate(135) translate(-40 0)" stroke="#101b36" strokeWidth="2.5">
+        <path d="M30-4.5 40 0l-10 4.5Z" fill="#fde7b5" />
+        <path d="M36.5-1.6 40 0l-3.5 1.6Z" fill="#101b36" stroke="none" />
+        <rect x="2" y="-4.5" width="28" height="9" fill="#facc15" />
+        <rect x="-4" y="-4.5" width="6" height="9" fill="#cbd5e1" />
+        <path d="M-4-4.5h-2.5a3 3 0 0 0-3 3v3a3 3 0 0 0 3 3H-4Z" fill="#3b82f6" />
+      </g>
+      <ellipse cx="80" cy="82" rx="7.5" ry="9.5" transform="rotate(40 80 82)" fill="#2b3f6e" stroke="#101b36" strokeWidth="3" />
+      <ellipse cx="31" cy="92" rx="6.5" ry="9.5" transform="rotate(-20 31 92)" fill="#2b3f6e" stroke="#101b36" strokeWidth="3" />
+    </svg>
+  );
+}
