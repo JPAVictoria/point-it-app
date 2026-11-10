@@ -1,21 +1,33 @@
+import { useId } from "react";
+import { CONTROL_CLASS, LABEL_CLASS } from "./styles";
+
 interface TextFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  mono?: boolean;
+  autoFocus?: boolean;
 }
 
-export function TextField({ label, value, onChange, placeholder }: TextFieldProps) {
+export function TextField({ label, value, onChange, placeholder, mono, autoFocus }: TextFieldProps) {
+  const id = useId();
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
-      {label}
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className={LABEL_CLASS}>
+        {label}
+      </label>
       <input
+        id={id}
         type="text"
-        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none"
+        autoComplete="off"
+        spellCheck={false}
+        autoFocus={autoFocus}
+        className={`${CONTROL_CLASS} ${mono ? "font-mono text-[12px]" : ""}`}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
       />
-    </label>
+    </div>
   );
 }
