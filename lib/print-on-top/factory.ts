@@ -29,6 +29,11 @@ export function createEmptyLayout(name = "Untitled Layout"): LayoutConfig {
 
 let fieldCounter = 0;
 
+/** Copies a field with a fresh id, offset so the copy is visible next to the original. */
+export function duplicateTextField(field: TextField, offsetPt = 10): TextField {
+  return { ...field, id: id(), name: `${field.name}_copy`, x: field.x + offsetPt, y: field.y + offsetPt };
+}
+
 export function createTextField(x: number, y: number): TextField {
   fieldCounter += 1;
   return {
