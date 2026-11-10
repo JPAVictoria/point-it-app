@@ -3,7 +3,7 @@ import { Editor } from "@/components/print-on-top-editor/Editor";
 
 export default function Home() {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-zinc-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-zinc-100">
       <Suspense fallback={null}>
         <Editor />
       </Suspense>

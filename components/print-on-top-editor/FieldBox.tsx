@@ -90,6 +90,7 @@ export function FieldBox({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onClick={(e) => e.stopPropagation()}
       style={{
         position: "absolute",
         left: field.x * scale,
@@ -102,13 +103,15 @@ export function FieldBox({
         fontStyle: cssFontStyle(field.fontFamily),
         textAlign: field.alignment,
         lineHeight: 1.15,
-        cursor: "grab",
+        cursor: "move",
         touchAction: "none",
         whiteSpace: field.maxWidth ? "pre-wrap" : "pre",
         userSelect: "none",
       }}
-      className={`border px-0.5 ${
-        selected ? "border-blue-500 bg-blue-500/10" : "border-transparent hover:border-zinc-400"
+      className={`rounded-[2px] px-0.5 text-zinc-900 outline-offset-1 ${
+        selected
+          ? "bg-blue-500/8 outline-[1.5px] outline-blue-500 outline-solid"
+          : "outline-1 outline-transparent hover:outline-blue-400/60 hover:outline-dashed"
       }`}
     >
       {field.sampleValue || field.label}

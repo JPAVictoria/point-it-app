@@ -1,15 +1,19 @@
 import { ChangeEvent, useRef } from "react";
 import { Button } from "./ui/Button";
+import { Icon } from "./ui/Icon";
+import { formatShortcut, useIsMac } from "./shortcuts";
+import { LogoMark } from "./ui/LogoMark";
 
 interface ToolbarProps {
   layoutName: string;
+  pageLabel: string;
   hasBackground: boolean;
   onUploadImage: (file: File) => void;
   onRemoveImage: () => void;
+  isEditingImage: boolean;
+  onAdjustImage: () => void;
   isPlacingField: boolean;
   onToggleAddField: () => void;
-  hasSelection: boolean;
-  onDeleteSelected: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -21,18 +25,25 @@ interface ToolbarProps {
   onZoomFit: () => void;
   onOpenPageSize: () => void;
   onOpenSaveLoad: () => void;
-  onOpenPreview: () => void;
+  isPreparingPrint: boolean;
+  onPrintPreview: () => void;
+  onOpenShortcuts: () => void;
+}
+
+function Divider() {
+  return <div className="mx-1 h-5 w-px bg-zinc-200" />;
 }
 
 export function Toolbar({
   layoutName,
+  pageLabel,
   hasBackground,
   onUploadImage,
   onRemoveImage,
+  isEditingImage,
+  onAdjustImage,
   isPlacingField,
   onToggleAddField,
-  hasSelection,
-  onDeleteSelected,
   canUndo,
   canRedo,
   onUndo,
@@ -44,9 +55,13 @@ export function Toolbar({
   onZoomFit,
   onOpenPageSize,
   onOpenSaveLoad,
-  onOpenPreview,
+  isPreparingPrint,
+  onPrintPreview,
+  onOpenShortcuts,
 }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMac = useIsMac();
+  const hint = (label: string, keys: string[]) => `${label}  ${formatShortcut(keys, isMac)}`;
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,60 +70,111 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
-      <span className="mr-2 text-sm font-semibold text-zinc-900">{layoutName}</span>
+    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-zinc-200 bg-white px-3">
+      <div className="mr-2 flex min-w-0 items-center gap-2.5">
+        <LogoMark size={24} />
+        <span className="max-w-56 truncate text-[13px] font-semibold tracking-tight text-zinc-900">
+          {layoutName}
+        </span>
+      </div>
 
-      <div className="flex items-center gap-1 border-r border-zinc-200 pr-2">
-        <Button onClick={() => fileInputRef.current?.click()}>
-          {hasBackground ? "Replace image" : "Upload image"}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        {hasBackground ? (
-          <Button variant="ghost" onClick={onRemoveImage}>
-            Remove image
+      <Divider />
+
+      <Button variant="ghost" disabled={isEditingImage} onClick={() => fileInputRef.current?.click()}>
+        <Icon name="image" size={15} />
+        {hasBackground ? "Replace image" : "Upload image"}
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      {hasBackground ? (
+        <>
+          <Button variant="ghost" active={isEditingImage} onClick={onAdjustImage}>
+            <Icon name="crop" size={15} />
+            Adjust image
           </Button>
-        ) : null}
+          <Button
+            variant="ghost-danger"
+            size="icon"
+            tooltip="Remove image"
+            disabled={isEditingImage}
+            onClick={onRemoveImage}
+          >
+            <Icon name="trash" size={15} />
+          </Button>
+        </>
+      ) : null}
+
+      <Button
+        variant="ghost"
+        active={isPlacingField}
+        disabled={isEditingImage}
+        tooltip={hint("Add text", ["T"])}
+        onClick={onToggleAddField}
+      >
+        <Icon name="plus" size={15} />
+        Add text
+      </Button>
+
+      <Divider />
+
+      <Button variant="ghost" size="icon" tooltip={hint("Undo", ["mod", "Z"])} disabled={!canUndo || isEditingImage} onClick={onUndo}>
+        <Icon name="undo" size={15} />
+      </Button>
+      <Button variant="ghost" size="icon" tooltip={hint("Redo", ["mod", "shift", "Z"])} disabled={!canRedo || isEditingImage} onClick={onRedo}>
+        <Icon name="redo" size={15} />
+      </Button>
+
+      <div className="flex-1" />
+
+      <div className="flex items-center rounded-md border border-zinc-200 bg-white shadow-xs">
+        <Button variant="ghost" size="icon" tooltip={hint("Zoom out", ["mod", "−"])} className="h-7 w-7 rounded-r-none" onClick={onZoomOut}>
+          <Icon name="minus" size={14} />
+        </Button>
+        <Button
+          variant="ghost"
+          tooltip="Reset to 100%"
+          className="h-7 w-14 justify-center rounded-none px-0 font-mono text-[11px] tabular-nums"
+          onClick={onZoomReset}
+        >
+          {Math.round(zoom * 100)}%
+        </Button>
+        <Button variant="ghost" size="icon" tooltip={hint("Zoom in", ["mod", "+"])} className="h-7 w-7 rounded-none" onClick={onZoomIn}>
+          <Icon name="plus" size={14} />
+        </Button>
+        <div className="h-4 w-px bg-zinc-200" />
+        <Button variant="ghost" size="icon" tooltip={hint("Fit to screen", ["mod", "0"])} className="h-7 w-7 rounded-l-none" onClick={onZoomFit}>
+          <Icon name="fit" size={14} />
+        </Button>
       </div>
 
-      <div className="flex items-center gap-1 border-r border-zinc-200 pr-2">
-        <Button active={isPlacingField} onClick={onToggleAddField}>
-          {isPlacingField ? "Click page to place…" : "Add text"}
-        </Button>
-        <Button variant="danger" disabled={!hasSelection} onClick={onDeleteSelected}>
-          Delete field
-        </Button>
-      </div>
+      <Divider />
 
-      <div className="flex items-center gap-1 border-r border-zinc-200 pr-2">
-        <Button disabled={!canUndo} onClick={onUndo}>
-          Undo
-        </Button>
-        <Button disabled={!canRedo} onClick={onRedo}>
-          Redo
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-1 border-r border-zinc-200 pr-2">
-        <Button onClick={onZoomOut}>−</Button>
-        <span className="w-12 text-center text-xs text-zinc-500">{Math.round(zoom * 100)}%</span>
-        <Button onClick={onZoomIn}>+</Button>
-        <Button onClick={onZoomReset}>100%</Button>
-        <Button onClick={onZoomFit}>Fit</Button>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <Button onClick={onOpenPageSize}>Page size</Button>
-        <Button onClick={onOpenSaveLoad}>Save / Load</Button>
-        <Button variant="primary" onClick={onOpenPreview}>
-          Preview PDF
-        </Button>
-      </div>
-    </div>
+      <Button variant="ghost" onClick={onOpenPageSize}>
+        <Icon name="page" size={15} />
+        <span className="max-w-48 truncate">{pageLabel}</span>
+      </Button>
+      <Button variant="ghost" tooltip={hint("Layouts", ["mod", "S"])} onClick={onOpenSaveLoad}>
+        <Icon name="layers" size={15} />
+        Layouts
+      </Button>
+      <Button variant="ghost" size="icon" tooltip={hint("Keyboard shortcuts", ["?"])} onClick={onOpenShortcuts}>
+        <Icon name="keyboard" size={15} />
+      </Button>
+      <Button
+        variant="primary"
+        className="ml-1"
+        tooltip={hint("Opens the print dialog", ["mod", "P"])}
+        disabled={isPreparingPrint || isEditingImage}
+        onClick={onPrintPreview}
+      >
+        <Icon name="eye" size={15} />
+        {isPreparingPrint ? "Preparing…" : "Preview PDF"}
+      </Button>
+    </header>
   );
 }
