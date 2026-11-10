@@ -61,3 +61,10 @@ export function roundForUnit(value: number, unit: LengthUnit): number {
   const precision = unit === "pt" ? 1 : 100;
   return Math.round(value * precision) / precision;
 }
+
+/** Formats a page size for display, e.g. "8.5 × 11 in". */
+export function formatDimensions(widthPt: number, heightPt: number, unit: LengthUnit): string {
+  const w = roundForUnit(fromPoints(widthPt, unit), unit);
+  const h = roundForUnit(fromPoints(heightPt, unit), unit);
+  return `${w} × ${h} ${unit}`;
+}

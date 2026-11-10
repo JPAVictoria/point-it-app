@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { BackgroundImage, LengthUnit, PageSize } from "@/lib/print-on-top/types";
-import { fromPoints, roundForUnit, toPoints } from "@/lib/print-on-top/units";
-import { PAPER_PRESETS } from "@/lib/print-on-top/paper-sizes";
+import { formatDimensions, fromPoints, roundForUnit, toPoints } from "@/lib/print-on-top/units";
+import { findPreset, PAPER_PRESETS } from "@/lib/print-on-top/paper-sizes";
 import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import { NumberField } from "./ui/NumberField";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import { SelectField } from "./ui/SelectField";
 
 interface PageSizeDialogProps {
@@ -12,119 +13,153 @@ interface PageSizeDialogProps {
   onClose: () => void;
   page: PageSize;
   background: BackgroundImage | null;
-  onChangePage: (patch: Partial<PageSize>) => void;
-  onChangeBackgroundFitMode: (fitMode: BackgroundImage["fitMode"]) => void;
+  onApply: (page: PageSize, fitMode: BackgroundImage["fitMode"] | null) => void;
 }
 
-const UNITS: LengthUnit[] = ["in", "cm", "mm", "pt"];
+const UNITS: { value: LengthUnit; label: string }[] = [
+  { value: "in", label: "in" },
+  { value: "cm", label: "cm" },
+  { value: "mm", label: "mm" },
+  { value: "pt", label: "pt" },
+];
 
-function aspectMismatch(page: PageSize, background: BackgroundImage | null): boolean {
+const CUSTOM = "__custom__";
+
+function aspectMismatch(widthPt: number, heightPt: number, background: BackgroundImage | null): boolean {
   if (!background) return false;
-  const pageRatio = page.widthPt / page.heightPt;
+  const pageRatio = widthPt / heightPt;
   const imageRatio = background.naturalWidthPx / background.naturalHeightPx;
   return Math.abs(pageRatio - imageRatio) / pageRatio > 0.05;
 }
 
-export function PageSizeDialog({
-  open,
-  onClose,
-  page,
-  background,
-  onChangePage,
-  onChangeBackgroundFitMode,
-}: PageSizeDialogProps) {
-  const [preset, setPreset] = useState("Custom");
+/** Mounted fresh each time the dialog opens, so the draft always starts from the current page. */
+function PageSizeForm({ onClose, page, background, onApply }: Omit<PageSizeDialogProps, "open">) {
+  const [widthPt, setWidthPt] = useState(page.widthPt);
+  const [heightPt, setHeightPt] = useState(page.heightPt);
+  const [unit, setUnit] = useState(page.displayUnit);
+  const [fitMode, setFitMode] = useState(background?.fitMode ?? "contain");
+
+  const orientation = widthPt > heightPt ? "landscape" : "portrait";
+  const preset = findPreset(widthPt, heightPt);
+  // A manually adjusted image isn't governed by fit mode, so there's nothing to choose.
+  const mismatch = !background?.frame && aspectMismatch(widthPt, heightPt, background);
+  const step = unit === "pt" ? 1 : 0.01;
+
+  const presetOptions = [
+    { value: CUSTOM, label: "Custom size" },
+    ...PAPER_PRESETS.map((p) => ({
+      value: p.name,
+      label: p.name,
+      group: p.group,
+      hint: formatDimensions(p.widthPt, p.heightPt, unit),
+    })),
+  ];
 
   function applyPreset(name: string) {
-    setPreset(name);
     const found = PAPER_PRESETS.find((p) => p.name === name);
-    if (!found || name === "Custom") return;
-    const isLandscape = page.orientation === "landscape";
-    onChangePage({
-      widthPt: isLandscape ? found.heightPt : found.widthPt,
-      heightPt: isLandscape ? found.widthPt : found.heightPt,
-    });
+    if (!found) return;
+    // Standard sizes follow the current orientation; Oboda form sizes are used exactly as defined.
+    const swap = found.group === "Standard" && orientation === "landscape";
+    setWidthPt(swap ? found.heightPt : found.widthPt);
+    setHeightPt(swap ? found.widthPt : found.heightPt);
   }
 
-  function toggleOrientation() {
-    onChangePage({
-      widthPt: page.heightPt,
-      heightPt: page.widthPt,
-      orientation: page.orientation === "portrait" ? "landscape" : "portrait",
-    });
+  function setOrientation(next: "portrait" | "landscape") {
+    if (next === orientation) return;
+    setWidthPt(heightPt);
+    setHeightPt(widthPt);
   }
 
-  const widthDisplay = roundForUnit(fromPoints(page.widthPt, page.displayUnit), page.displayUnit);
-  const heightDisplay = roundForUnit(fromPoints(page.heightPt, page.displayUnit), page.displayUnit);
-  const mismatch = aspectMismatch(page, background);
+  function handleApply() {
+    onApply({ widthPt, heightPt, displayUnit: unit, orientation }, background ? fitMode : null);
+    onClose();
+  }
 
   return (
-    <Dialog title="Page size" open={open} onClose={onClose}>
-      <div className="flex flex-col gap-3">
+    <Dialog
+      title="Page size"
+      description="Match the physical size of the pre-printed form."
+      open
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleApply}>
+            Apply
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleApply();
+        }}
+      >
         <SelectField
           label="Preset"
-          value={preset}
-          options={PAPER_PRESETS.map((p) => ({ value: p.name, label: p.name }))}
+          value={preset?.name ?? CUSTOM}
+          options={presetOptions}
           onChange={applyPreset}
         />
 
-        <SelectField
-          label="Unit"
-          value={page.displayUnit}
-          options={UNITS.map((u) => ({ value: u, label: u }))}
-          onChange={(u) => onChangePage({ displayUnit: u as LengthUnit })}
-        />
-
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           <NumberField
-            label={`Width (${page.displayUnit})`}
-            value={widthDisplay}
-            step={page.displayUnit === "pt" ? 1 : 0.01}
+            label="Width"
+            suffix={unit}
+            value={roundForUnit(fromPoints(widthPt, unit), unit)}
+            step={step}
             min={0.1}
-            onChange={(v) => {
-              setPreset("Custom");
-              onChangePage({ widthPt: toPoints(Math.max(0.1, v), page.displayUnit) });
-            }}
+            onChange={(v) => setWidthPt(toPoints(Math.max(0.1, v), unit))}
           />
           <NumberField
-            label={`Height (${page.displayUnit})`}
-            value={heightDisplay}
-            step={page.displayUnit === "pt" ? 1 : 0.01}
+            label="Height"
+            suffix={unit}
+            value={roundForUnit(fromPoints(heightPt, unit), unit)}
+            step={step}
             min={0.1}
-            onChange={(v) => {
-              setPreset("Custom");
-              onChangePage({ heightPt: toPoints(Math.max(0.1, v), page.displayUnit) });
-            }}
+            onChange={(v) => setHeightPt(toPoints(Math.max(0.1, v), unit))}
           />
         </div>
 
-        <Button onClick={toggleOrientation}>
-          Switch to {page.orientation === "portrait" ? "landscape" : "portrait"}
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <SegmentedControl
+            label="Orientation"
+            value={orientation}
+            options={[
+              { value: "portrait", label: "Portrait" },
+              { value: "landscape", label: "Landscape" },
+            ]}
+            onChange={setOrientation}
+          />
+          <SegmentedControl label="Unit" value={unit} options={UNITS} onChange={setUnit} />
+        </div>
 
         {mismatch ? (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
-            <p className="mb-2">
-              The uploaded image&apos;s proportions don&apos;t match this page size. The physical
-              page size will not change — choose how the reference image is displayed:
+          <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+            <p className="text-xs leading-relaxed text-amber-900">
+              The uploaded image&apos;s proportions don&apos;t match this page. The page size stays as
+              set — choose how the reference image is shown.
             </p>
-            <div className="flex gap-2">
-              <Button
-                variant={background?.fitMode === "contain" ? "primary" : "secondary"}
-                onClick={() => onChangeBackgroundFitMode("contain")}
-              >
-                Fit (letterbox)
-              </Button>
-              <Button
-                variant={background?.fitMode === "stretch" ? "primary" : "secondary"}
-                onClick={() => onChangeBackgroundFitMode("stretch")}
-              >
-                Stretch to fill
-              </Button>
-            </div>
+            <SegmentedControl
+              value={fitMode}
+              options={[
+                { value: "contain", label: "Fit (letterbox)" },
+                { value: "stretch", label: "Stretch to fill" },
+              ]}
+              onChange={setFitMode}
+            />
           </div>
         ) : null}
-      </div>
+
+        {/* Lets Enter in a field submit the form. */}
+        <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+      </form>
     </Dialog>
   );
+}
+
+export function PageSizeDialog({ open, ...props }: PageSizeDialogProps) {
+  return open ? <PageSizeForm {...props} /> : null;
 }
